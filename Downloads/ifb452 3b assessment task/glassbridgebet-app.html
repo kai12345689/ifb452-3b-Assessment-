@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GlassBridgeBet</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --red:#e63946;--green:#2dc653;--yellow:#ffd166;--blue:#118ab2;
+  --bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;--border:#2a2a2a;
+  --text:#f0f0f0;--muted:#666;--font-title:'Bebas Neue',sans-serif;--font-body:'Space Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;overflow-x:hidden}
+
+/* scan lines overlay */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);pointer-events:none;z-index:9999}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.logo{font-family:var(--font-title);font-size:28px;letter-spacing:3px;color:var(--yellow)}
+.logo span{color:var(--red)}
+#wallet-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 18px;font-family:var(--font-body);font-size:12px;cursor:pointer;border-radius:4px;transition:all .2s}
+#wallet-btn:hover{border-color:var(--yellow);color:var(--yellow)}
+#wallet-btn.connected{border-color:var(--green);color:var(--green)}
+
+.main{display:grid;grid-template-columns:1fr 340px;gap:0;height:calc(100vh - 57px)}
+
+/* LEFT PANEL */
+.left{padding:24px;overflow-y:auto;border-right:1px solid var(--border)}
+
+.game-status{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:20px}
+.status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.status-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.status-value{font-size:13px;font-weight:700}
+.state-badge{padding:4px 10px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.state-WAITING{background:#1a1a1a;color:var(--muted);border:1px solid var(--border)}
+.state-BETTING{background:rgba(17,138,178,.2);color:var(--blue);border:1px solid var(--blue)}
+.state-ACTIVE{background:rgba(44,198,83,.15);color:var(--green);border:1px solid var(--green)}
+.state-ENDED{background:rgba(230,57,70,.15);color:var(--red);border:1px solid var(--red)}
+
+/* Bridge */
+.bridge-section{margin-bottom:24px}
+.section-title{font-family:var(--font-title);font-size:20px;letter-spacing:2px;margin-bottom:12px;color:var(--yellow)}
+.bridge{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.panel{width:52px;height:52px;border-radius:4px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--font-title);font-size:18px;color:var(--muted);transition:all .3s;position:relative}
+.panel.pending{border-color:var(--border);color:var(--muted)}
+.panel.current{border-color:var(--yellow);color:var(--yellow);box-shadow:0 0 12px rgba(255,209,102,.4);animation:pulse 1.2s infinite}
+.panel.survived{border-color:var(--green);background:rgba(44,198,83,.15);color:var(--green)}
+.panel.eliminated{border-color:var(--red);background:rgba(230,57,70,.2);color:var(--red)}
+.panel-arrow{color:var(--border);font-size:16px}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px rgba(255,209,102,.3)}50%{box-shadow:0 0 20px rgba(255,209,102,.7)}}
+
+/* Choice buttons */
+.choice-section{margin-bottom:24px}
+.choice-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choice-btn{padding:28px 16px;border:2px solid;border-radius:6px;cursor:pointer;font-family:var(--font-title);font-size:28px;letter-spacing:2px;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:4px}
+.choice-btn small{font-family:var(--font-body);font-size:10px;font-weight:400;letter-spacing:1px;text-transform:uppercase}
+#btn-left{background:rgba(230,57,70,.1);border-color:var(--red);color:var(--red)}
+#btn-left:hover:not(:disabled){background:rgba(230,57,70,.25);transform:translateY(-2px)}
+#btn-right{background:rgba(44,198,83,.1);border-color:var(--green);color:var(--green)}
+#btn-right:hover:not(:disabled){background:rgba(44,198,83,.25);transform:translateY(-2px)}
+.choice-btn:disabled{opacity:.3;cursor:not-allowed;transform:none!important}
+
+/* Admin section */
+.admin-section{margin-bottom:24px}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.admin-field{display:flex;flex-direction:column;gap:4px}
+.field-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+input,select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px;font-family:var(--font-body);font-size:12px;border-radius:4px;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--yellow)}
+.admin-field.full{grid-column:1/-1}
+
+/* Buttons */
+.btn{padding:12px 20px;border:none;border-radius:4px;font-family:var(--font-body);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:1px;width:100%}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-yellow{background:var(--yellow);color:#000}
+.btn-yellow:hover:not(:disabled){background:#e6bc00}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-blue:hover:not(:disabled){background:#0d6f8a}
+.btn-green{background:var(--green);color:#000}
+.btn-green:hover:not(:disabled){background:#22a844}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover:not(:disabled){background:#c1121f}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--yellow);color:var(--yellow)}
+
+/* RIGHT PANEL */
+.right{background:var(--surface);overflow-y:auto;display:flex;flex-direction:column}
+.right-section{padding:16px 20px;border-bottom:1px solid var(--border)}
+.right-title{font-family:var(--font-title);font-size:16px;letter-spacing:2px;color:var(--yellow);margin-bottom:12px}
+
+/* Bet form */
+.bet-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.predict-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.predict-btn{padding:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--font-body);font-size:11px;cursor:pointer;border-radius:4px;transition:all .2s;text-transform:uppercase;letter-spacing:1px}
+.predict-btn.active-survive{border-color:var(--green);background:rgba(44,198,83,.15);color:var(--green)}
+.predict-btn.active-die{border-color:var(--red);background:rgba(230,57,70,.15);color:var(--red)}
+.predict-btn:hover:not(:disabled){border-color:var(--yellow)}
+
+/* Winnings */
+.winnings-amount{font-family:var(--font-title);font-size:36px;color:var(--green);text-align:center;padding:8px 0}
+
+/* Log */
+.log{flex:1;padding:16px 20px;overflow-y:auto}
+.log-title{font-family:var(--font-title);font-size:16px;letter-spacing:2px;color:var(--yellow);margin-bottom:10px}
+.log-entries{display:flex;flex-direction:column;gap:6px}
+.log-entry{font-size:11px;line-height:1.5;padding:8px 10px;background:var(--surface2);border-radius:4px;border-left:3px solid var(--border)}
+.log-entry.info{border-left-color:var(--blue)}
+.log-entry.success{border-left-color:var(--green)}
+.log-entry.error{border-left-color:var(--red)}
+.log-entry.warn{border-left-color:var(--yellow)}
+.log-time{color:var(--muted);margin-right:6px}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);padding:14px 20px;border-radius:6px;font-size:13px;max-width:320px;z-index:10000;transform:translateX(400px);transition:transform .3s;display:none}
+#toast.show{transform:translateX(0);display:block}
+#toast.success{border-color:var(--green);color:var(--green)}
+#toast.error{border-color:var(--red);color:var(--red)}
+#toast.info{border-color:var(--blue);color:var(--blue)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:28px;width:420px;max-width:90vw}
+.modal h3{font-family:var(--font-title);font-size:22px;letter-spacing:2px;color:var(--yellow);margin-bottom:16px}
+.modal-btns{display:flex;gap:10px;margin-top:20px}
+
+/* Hash display */
+.hash-box{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:10px;font-size:10px;word-break:break-all;color:var(--muted);margin-top:8px;font-family:var(--font-body)}
+
+/* Role indicator */
+.role-tag{font-size:10px;padding:3px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.role-frontman{background:rgba(255,209,102,.15);color:var(--yellow);border:1px solid rgba(255,209,102,.3)}
+.role-player{background:rgba(17,138,178,.15);color:var(--blue);border:1px solid rgba(17,138,178,.3)}
+.role-spectator{background:rgba(44,198,83,.15);color:var(--green);border:1px solid rgba(44,198,83,.3)}
+
+.spacer{height:10px}
+.mt8{margin-top:8px}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Glass<span>Bridge</span>Bet</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span id="role-display" style="font-size:11px;color:var(--muted)"></span>
+    <button id="wallet-btn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- LEFT PANEL -->
+  <div class="left">
+
+    <!-- Game Status -->
+    <div class="game-status">
+      <div class="status-row">
+        <span class="status-label">State</span>
+        <span id="state-badge" class="state-badge state-WAITING">WAITING</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Game ID</span>
+        <span class="status-value" id="game-id">—</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Steps</span>
+        <span class="status-value" id="steps-display">—</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Player</span>
+        <span class="status-value" id="player-display" style="font-size:11px;color:var(--muted)">None registered</span>
+      </div>
+      <div class="status-row" style="margin-bottom:0">
+        <span class="status-label">Vault Balance</span>
+        <span class="status-value" id="vault-balance">— ETH</span>
+      </div>
+    </div>
+
+    <!-- Bridge visual -->
+    <div class="bridge-section">
+      <div class="section-title">The Bridge</div>
+      <div class="bridge" id="bridge-panels">
+        <div style="color:var(--muted);font-size:12px">Start a game to see the bridge</div>
+      </div>
+    </div>
+
+    <!-- Player choices -->
+    <div class="choice-section">
+      <div class="section-title">Make Your Choice</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Only the registered player can cross. Choose a panel — one is safe glass, one will shatter.</div>
+      <div class="choice-btns">
+        <button class="choice-btn" id="btn-left" disabled onclick="makeChoice(true)">
+          ⬅ LEFT
+          <small>choose left panel</small>
+        </button>
+        <button class="choice-btn" id="btn-right" disabled onclick="makeChoice(false)">
+          RIGHT ➡
+          <small>choose right panel</small>
+        </button>
+      </div>
+    </div>
+
+    <!-- Admin section -->
+    <div class="admin-section">
+      <div class="section-title">Front Man Controls</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Only the deployer wallet can use these.</div>
+
+      <div class="admin-grid">
+        <div class="admin-field">
+          <label class="field-label">Steps (1-20)</label>
+          <input type="number" id="input-steps" value="5" min="1" max="20"/>
+        </div>
+        <div class="admin-field">
+          <label class="field-label">Pattern (L/R chars)</label>
+          <input type="text" id="input-pattern" value="LRLLR" placeholder="e.g. LRLLR" maxlength="20"/>
+        </div>
+        <div class="admin-field">
+          <label class="field-label">Salt (any text)</label>
+          <input type="text" id="input-salt" value="glasssalt42" placeholder="secret salt"/>
+        </div>
+        <div class="admin-field" style="display:flex;flex-direction:column;justify-content:flex-end">
+          <button class="btn btn-yellow" id="btn-compute-hash" onclick="computeHash()">Compute Hash</button>
+        </div>
+        <div class="admin-field full">
+          <label class="field-label">Pattern Hash (auto-computed)</label>
+          <div class="hash-box" id="hash-display">Click "Compute Hash" first</div>
+        </div>
+        <div class="admin-field full">
+          <button class="btn btn-yellow" id="btn-start-game" disabled onclick="startGame()">Start Game + Commit Hash</button>
+        </div>
+        <div class="admin-field full">
+          <button class="btn btn-blue" id="btn-reveal" disabled onclick="revealPattern()">Reveal Pattern (closes betting)</button>
+        </div>
+        <div class="admin-field full">
+          <button class="btn btn-ghost" id="btn-withdraw-fee" disabled onclick="withdrawFee()">Withdraw House Fee</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player register -->
+    <div class="admin-section">
+      <div class="section-title">Player</div>
+      <button class="btn btn-blue" id="btn-register" disabled onclick="registerPlayer()">Register as Player</button>
+    </div>
+
+    <!-- Refresh -->
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" onclick="refreshState()">↻ Refresh Game State</button>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+
+    <!-- Betting -->
+    <div class="right-section">
+      <div class="right-title">Place a Bet</div>
+      <div class="bet-row">
+        <div class="admin-field">
+          <label class="field-label">Step #</label>
+          <input type="number" id="bet-step" value="1" min="1"/>
+        </div>
+        <div class="admin-field">
+          <label class="field-label">Amount (ETH)</label>
+          <input type="number" id="bet-amount" value="0.01" min="0.001" step="0.001"/>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Predict for that step:</div>
+      <div class="predict-btns">
+        <button class="predict-btn" id="pred-survive" onclick="setPrediction(true)">✓ Player Survives</button>
+        <button class="predict-btn" id="pred-die" onclick="setPrediction(false)">✗ Player Dies</button>
+      </div>
+      <button class="btn btn-green" id="btn-place-bet" disabled onclick="placeBet()">Place Bet</button>
+    </div>
+
+    <!-- Winnings -->
+    <div class="right-section">
+      <div class="right-title">My Winnings</div>
+      <div class="winnings-amount" id="winnings-display">0.0000 ETH</div>
+      <button class="btn btn-green" id="btn-claim" disabled onclick="claimWinnings()">Claim Winnings</button>
+    </div>
+
+    <!-- Tx Log -->
+    <div class="log">
+      <div class="log-title">Activity Log</div>
+      <div class="log-entries" id="log-entries">
+        <div class="log-entry info"><span class="log-time">—</span>Connect your wallet to begin</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Modal: contract addresses -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal">
+    <h3>Contract Setup</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Enter the addresses of your deployed contracts on the QUT Testnet.</p>
+    <div class="admin-field mt8">
+      <label class="field-label">BettingVault Address</label>
+      <input type="text" id="modal-vault-addr" placeholder="0x..."/>
+    </div>
+    <div class="admin-field mt8">
+      <label class="field-label">GlassBridgeGame Address</label>
+      <input type="text" id="modal-game-addr" placeholder="0x..."/>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-yellow" style="flex:1" onclick="saveAddresses()">Save & Connect</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+const QUT_CHAIN_ID = '0x1C4'; // 452 in hex — QUT Testnet
+
+const VAULT_ABI = [{"inputs":[{"internalType":"uint8","name":"_houseFeePercent","type":"uint8"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"bettor","type":"address"},{"indexed":false,"internalType":"uint256","name":"step","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"bool","name":"predictSurvive","type":"bool"}],"name":"BetPlaced","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"frontMan","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"FeeWithdrawn","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"bettor","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"RefundClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"deadlineBlock","type":"uint256"}],"name":"RefundModeActivated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"step","type":"uint256"},{"indexed":false,"internalType":"bool","name":"playerSurvived","type":"bool"},{"indexed":false,"internalType":"uint256","name":"totalPayout","type":"uint256"}],"name":"StepSettled","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"bettor","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"WinningsClaimed","type":"event"},{"inputs":[],"name":"accumulatedFees","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"deadlineBlock","type":"uint256"}],"name":"activateRefundMode","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balances","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"betsPerStep","outputs":[{"internalType":"address","name":"bettor","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bool","name":"predictSurvive","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"step","type":"uint256"}],"name":"claimRefund","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"claimWinnings","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"contractBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"frontMan","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"gameContract","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"addr","type":"address"}],"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"step","type":"uint256"}],"name":"getBetsForStep","outputs":[{"components":[{"internalType":"address","name":"bettor","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bool","name":"predictSurvive","type":"bool"}],"internalType":"struct BettingVault.Bet[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"houseFeePercent","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"step","type":"uint256"},{"internalType":"bool","name":"predictSurvive","type":"bool"}],"name":"placeBet","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"refundBalances","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"refundDeadlineBlock","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"refundModeActive","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_gameContract","type":"address"}],"name":"setGameContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"step","type":"uint256"},{"internalType":"bool","name":"playerSurvived","type":"bool"}],"name":"settleStep","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"withdrawFee","outputs":[],"stateMutability":"nonpayable","type":"function"}];
+
+const GAME_ABI = [{"inputs":[{"internalType":"address","name":"_bettingVault","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"gameId","type":"uint256"}],"name":"BettingClosed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"gameId","type":"uint256"}],"name":"GameEnded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"gameId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"totalSteps","type":"uint256"},{"indexed":false,"internalType":"bytes32","name":"patternHash","type":"bytes32"}],"name":"GameStarted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"gameId","type":"uint256"},{"indexed":false,"internalType":"string","name":"pattern","type":"string"}],"name":"PatternRevealed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint256","name":"atStep","type":"uint256"}],"name":"PlayerEliminated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"}],"name":"PlayerRegistered","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"}],"name":"PlayerWon","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"gameId","type":"uint256"}],"name":"RefundTriggered","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint256","name":"step","type":"uint256"},{"indexed":false,"internalType":"bool","name":"choseLeft","type":"bool"},{"indexed":false,"internalType":"bool","name":"survived","type":"bool"}],"name":"StepAttempted","type":"event"},{"inputs":[],"name":"REVEAL_WINDOW","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"bettingVault","outputs":[{"internalType":"contract BettingVault","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"committedPatternHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"pattern","type":"string"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"name":"computePatternHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"currentGameId","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"currentPlayer","outputs":[{"internalType":"address","name":"addr","type":"address"},{"internalType":"uint256","name":"currentStep","type":"uint256"},{"internalType":"bool","name":"alive","type":"bool"},{"internalType":"bool","name":"registered","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"frontMan","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getGameState","outputs":[{"internalType":"enum GlassBridgeGame.GameState","name":"_state","type":"uint8"},{"internalType":"uint256","name":"_gameId","type":"uint256"},{"internalType":"uint256","name":"_totalSteps","type":"uint256"},{"internalType":"bool","name":"_patternRevealed","type":"bool"},{"internalType":"bool","name":"_playerRegistered","type":"bool"},{"internalType":"address","name":"_playerAddr","type":"address"},{"internalType":"uint256","name":"_playerStep","type":"uint256"},{"internalType":"bool","name":"_playerAlive","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bool","name":"goLeft","type":"bool"}],"name":"makeChoice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"patternRevealed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"registerPlayer","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"revealDeadlineBlock","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"pattern","type":"string"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"name":"revealPattern","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"revealedPattern","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_steps","type":"uint256"},{"internalType":"bytes32","name":"_patternHash","type":"bytes32"}],"name":"startGame","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"state","outputs":[{"internalType":"enum GlassBridgeGame.GameState","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSteps","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"triggerRefund","outputs":[],"stateMutability":"nonpayable","type":"function"}];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let provider, signer, account;
+let vaultContract, gameContract;
+let vaultAddr = localStorage.getItem('vaultAddr') || '';
+let gameAddr  = localStorage.getItem('gameAddr')  || '';
+let currentPrediction = true; // true = survive
+let computedHash = null;
+let computedSalt = null;
+const STATE_NAMES = ['WAITING','BETTING','ACTIVE','ENDED'];
+
+// ─── ETHERS (loaded from CDN) ─────────────────────────────────────────────────
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<script>
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function log(msg, type='info'){
+  const el = document.getElementById('log-entries');
+  const t = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = `log-entry ${type}`;
+  div.innerHTML = `<span class="log-time">${t}</span>${msg}`;
+  el.prepend(div);
+}
+
+function toast(msg, type='info'){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  el.style.display = 'block';
+  setTimeout(()=>{ el.className=''; el.style.display='none'; }, 3500);
+}
+
+function setBtn(id, enabled){ document.getElementById(id).disabled = !enabled; }
+
+function fmt(wei){
+  if(!wei && wei !== 0n) return '—';
+  return parseFloat(ethers.formatEther(wei)).toFixed(4) + ' ETH';
+}
+
+function shortAddr(addr){ return addr ? addr.slice(0,6)+'...'+addr.slice(-4) : '—'; }
+
+// ─── WALLET ──────────────────────────────────────────────────────────────────
+async function connectWallet(){
+  if(!window.ethereum){ toast('MetaMask not found!','error'); return; }
+  try {
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer   = await provider.getSigner();
+    account  = await signer.getAddress();
+
+    const network = await provider.getNetwork();
+    const chainId = '0x' + network.chainId.toString(16);
+
+    document.getElementById('wallet-btn').textContent = shortAddr(account);
+    document.getElementById('wallet-btn').classList.add('connected');
+    log(`Wallet connected: ${account}`, 'success');
+    log(`Network: Chain ID ${network.chainId}`, 'info');
+    toast('Wallet connected!', 'success');
+
+    // Check if we have saved addresses
+    if(vaultAddr && gameAddr){
+      initContracts();
+    } else {
+      document.getElementById('setup-modal').classList.add('show');
+    }
+
+    window.ethereum.on('accountsChanged', ()=>location.reload());
+    window.ethereum.on('chainChanged',    ()=>location.reload());
+  } catch(e){
+    toast('Connection failed: '+e.message, 'error');
+    log('Wallet error: '+e.message, 'error');
+  }
+}
+
+function saveAddresses(){
+  const v = document.getElementById('modal-vault-addr').value.trim();
+  const g = document.getElementById('modal-game-addr').value.trim();
+  if(!v || !g){ toast('Enter both addresses','error'); return; }
+  vaultAddr = v; gameAddr = g;
+  localStorage.setItem('vaultAddr', v);
+  localStorage.setItem('gameAddr',  g);
+  document.getElementById('setup-modal').classList.remove('show');
+  initContracts();
+}
+
+function initContracts(){
+  vaultContract = new ethers.Contract(vaultAddr, VAULT_ABI, signer);
+  gameContract  = new ethers.Contract(gameAddr,  GAME_ABI,  signer);
+  log(`Vault: ${shortAddr(vaultAddr)}`, 'info');
+  log(`Game:  ${shortAddr(gameAddr)}`,  'info');
+  setBtn('btn-start-game', true);
+  setBtn('btn-place-bet',  true);
+  refreshState();
+}
+
+// ─── GAME STATE ──────────────────────────────────────────────────────────────
+async function refreshState(){
+  if(!gameContract) return;
+  try {
+    const s = await gameContract.getGameState();
+    const stateIdx = Number(s._state);
+    const stateName = STATE_NAMES[stateIdx] || 'UNKNOWN';
+
+    // State badge
+    const badge = document.getElementById('state-badge');
+    badge.textContent = stateName;
+    badge.className = `state-badge state-${stateName}`;
+
+    document.getElementById('game-id').textContent       = s._gameId.toString() || '—';
+    document.getElementById('steps-display').textContent = s._totalSteps.toString() || '—';
+    document.getElementById('player-display').textContent = s._playerRegistered
+      ? shortAddr(s._playerAddr) + (s._playerAlive ? ' 🟢' : ' 💀')
+      : 'None registered';
+
+    // Vault balance
+    const vbal = await vaultContract.contractBalance();
+    document.getElementById('vault-balance').textContent = fmt(vbal);
+
+    // My winnings
+    if(account){
+      const win = await vaultContract.getBalance(account);
+      document.getElementById('winnings-display').textContent = fmt(win);
+      setBtn('btn-claim', win > 0n);
+    }
+
+    // Role detection
+    const frontMan = await gameContract.frontMan();
+    const isFrontMan = account && account.toLowerCase() === frontMan.toLowerCase();
+    const isPlayer   = s._playerRegistered && account && s._playerAddr.toLowerCase() === account.toLowerCase();
+    const roleEl = document.getElementById('role-display');
+    if(isFrontMan){ roleEl.innerHTML = '<span class="role-tag role-frontman">Front Man</span>'; }
+    else if(isPlayer){ roleEl.innerHTML = '<span class="role-tag role-player">Player</span>'; }
+    else { roleEl.innerHTML = '<span class="role-tag role-spectator">Spectator</span>'; }
+
+    // Bridge panels
+    renderBridge(Number(s._totalSteps), Number(s._playerStep), s._playerAlive, stateIdx);
+
+    // Button states
+    setBtn('btn-start-game', isFrontMan && stateIdx === 0);
+    setBtn('btn-reveal',     isFrontMan && stateIdx === 1 && computedHash !== null);
+    setBtn('btn-withdraw-fee', isFrontMan && stateIdx >= 2);
+    setBtn('btn-register',   stateIdx === 1 && !s._playerRegistered);
+    setBtn('btn-left',       stateIdx === 2 && isPlayer && s._playerAlive);
+    setBtn('btn-right',      stateIdx === 2 && isPlayer && s._playerAlive);
+    setBtn('btn-place-bet',  stateIdx === 1 && !!vaultContract);
+
+  } catch(e){
+    log('Refresh error: '+e.message, 'error');
+  }
+}
+
+function renderBridge(total, currentStep, alive, stateIdx){
+  if(!total || total === 0){
+    document.getElementById('bridge-panels').innerHTML = '<div style="color:var(--muted);font-size:12px">Start a game to see the bridge</div>';
+    return;
+  }
+  let html = '';
+  for(let i = 1; i <= total; i++){
+    let cls = 'panel pending';
+    let icon = i;
+    if(stateIdx >= 2){
+      if(i < currentStep){ cls = 'panel survived'; icon = '✓'; }
+      else if(i === currentStep && !alive){ cls = 'panel eliminated'; icon = '✕'; }
+      else if(i === currentStep){ cls = 'panel current'; icon = i; }
+    }
+    html += `<div class="${cls}">${icon}</div>`;
+    if(i < total) html += `<div class="panel-arrow">›</div>`;
+  }
+  document.getElementById('bridge-panels').innerHTML = html;
+}
+
+// ─── HASH COMPUTATION ────────────────────────────────────────────────────────
+function computeHash(){
+  const pattern = document.getElementById('input-pattern').value.trim().toUpperCase();
+  const saltStr = document.getElementById('input-salt').value.trim();
+  const steps   = parseInt(document.getElementById('input-steps').value);
+
+  if(!pattern || pattern.length !== steps){
+    toast(`Pattern must be exactly ${steps} characters`, 'error'); return;
+  }
+  if(!/^[LR]+$/.test(pattern)){
+    toast('Pattern can only contain L and R', 'error'); return;
+  }
+
+  // Compute keccak256(abi.encodePacked(pattern, salt))
+  // Salt must be bytes32 — pad the string
+  const saltBytes = ethers.encodeBytes32String(saltStr);
+  const encoded = ethers.solidityPacked(['string','bytes32'], [pattern, saltBytes]);
+  computedHash = ethers.keccak256(encoded);
+  computedSalt = saltBytes;
+
+  document.getElementById('hash-display').textContent = computedHash;
+  log(`Hash computed for pattern "${pattern}"`, 'success');
+  toast('Hash ready!', 'success');
+
+  // Enable reveal if in BETTING state
+  setBtn('btn-reveal', true);
+}
+
+// ─── FRONT MAN ACTIONS ───────────────────────────────────────────────────────
+async function startGame(){
+  if(!computedHash){ toast('Compute hash first!', 'error'); return; }
+  const steps = parseInt(document.getElementById('input-steps').value);
+  try {
+    log(`Starting game: ${steps} steps, committing hash...`, 'info');
+    toast('Confirm in MetaMask...', 'info');
+    const tx = await gameContract.startGame(steps, computedHash);
+    log(`TX sent: ${tx.hash.slice(0,12)}...`, 'info');
+    await tx.wait();
+    log('Game started! Betting is now open.', 'success');
+    toast('Game started!', 'success');
+    await refreshState();
+  } catch(e){
+    const msg = e.reason || e.message;
+    log('startGame error: '+msg, 'error');
+    toast('Error: '+msg, 'error');
+  }
+}
+
+async function revealPattern(){
+  const pattern = document.getElementById('input-pattern').value.trim().toUpperCase();
+  if(!computedSalt){ toast('Compute hash first!', 'error'); return; }
+  try {
+    log(`Revealing pattern "${pattern}"...`, 'info');
+    toast('Confirm in MetaMask...', 'info');
+    const tx = await gameContract.revealPattern(pattern, computedSalt);
+    await tx.wait();
+    log(`Pattern revealed: "${pattern}" — hash verified on-chain ✓`, 'success');
+    toast('Pattern revealed!', 'success');
+    await refreshState();
+  } catch(e){
+    const msg = e.reason || e.message;
+    log('revealPattern error: '+msg, 'error');
+    toast('Error: '+msg, 'error');
+  }
+}
+
+async function withdrawFee(){
+  try {
+    const fees = await vaultContract.accumulatedFees();
+    if(fees === 0n){ toast('No fees to withdraw', 'error'); return; }
+    toast('Confirm in MetaMask...', 'info');
+    const tx = await vaultContract.withdrawFee();
+    await tx.wait();
+    log(`House fee withdrawn: ${fmt(fees)}`, 'success');
+    toast('Fee withdrawn!', 'success');
+    await refreshState();
+  } catch(e){
+    const msg = e.reason || e.message;
+    log('withdrawFee error: '+msg, 'error');
+    toast('Error: '+msg, 'error');
+  }
+}
+
+// ─── PLAYER ACTIONS ──────────────────────────────────────────────────────────
+async function registerPlayer(){
+  try {
+    toast('Confirm in MetaMask...', 'info');
+    const tx = await gameContract.registerPlayer();
+    await tx.wait();
+    log('Registered as player!', 'success');
+    toast('Registered!', 'success');
+    await refreshState();
+  } catch(e){
+    const msg = e.reason || e.message;
+    log('register error: '+msg, 'error');
+    toast('Error: '+msg, 'error');
+  }
+}
+
+async function makeChoice(goLeft){
+  try {
+    const dir = goLeft ? 'LEFT' : 'RIGHT';
+    log(`Making choice: ${dir}...`, 'info');
+    toast('Confirm in MetaMask...', 'info');
+    const tx = await gameContract.makeChoice(goLeft);
+    const receipt = await tx.wait();
+
+    // Parse events
+    const gameIface = new ethers.Interface(GAME_ABI);
+    let survived = null;
+    let stepNum = null;
+    for(const l of receipt.logs){
+      try {
+        const parsed = gameIface.parseLog(l);
+        if(parsed.name === 'StepAttempted'){
+          survived = parsed.args.survived;
+          stepNum  = parsed.args.step;
+        }
+        if(parsed.name === 'PlayerWon'){
+          toast('🏆 You won! Claim your prize!', 'success');
+          log('🏆 PLAYER WON! All steps completed.', 'success');
+        }
+        if(parsed.name === 'PlayerEliminated'){
+          toast('💀 Eliminated at step '+parsed.args.atStep, 'error');
+          log('💀 Player eliminated at step '+parsed.args.atStep, 'error');
+        }
+      } catch {}
+    }
+
+    if(survived !== null){
+      log(`Step ${stepNum}: chose ${dir} → ${survived ? '✅ SURVIVED' : '❌ ELIMINATED'} | BettingVault.settleStep() called`, survived ? 'success' : 'error');
+    }
+
+    await refreshState();
+  } catch(e){
+    const msg = e.reason || e.message;
+    log('makeChoice error: '+msg, 'error');
+    toast('Error: '+msg, 'error');
+  }
+}
+
+// ─── SPECTATOR ACTIONS ───────────────────────────────────────────────────────
+function setPrediction(survive){
+  currentPrediction = survive;
+  document.getElementById('pred-survive').className = 'predict-btn' + (survive ? ' active-survive' : '');
+  document.getElementById('pred-die').className     = 'predict-btn' + (!survive ? ' active-die' : '');
+}
+
+async function placeBet(){
+  const step   = parseInt(document.getElementById('bet-step').value);
+  const amount = document.getElementById('bet-amount').value;
+  if(!step || !amount){ toast('Fill in step and amount', 'error'); return; }
+  try {
+    const value = ethers.parseEther(amount);
+    const pred  = currentPrediction ? 'SURVIVE' : 'DIE';
+    log(`Placing bet: ${amount} ETH on step ${step}, predicts ${pred}...`, 'info');
+    toast('Confirm in MetaMask...', 'info');
+    const tx = await vaultContract.placeBet(step, currentPrediction, {value});
+    await tx.wait();
+    log(`Bet placed: ${amount} ETH on step ${step} (${pred})`, 'success');
+    toast('Bet placed!', 'success');
+    await refreshState();
+  } catch(e){
+    const msg = e.reason || e.message;
+    log('placeBet error: '+msg, 'error');
+    toast('Error: '+msg, 'error');
+  }
+}
+
+async function claimWinnings(){
+  try {
+    toast('Confirm in MetaMask...', 'info');
+    const tx = await vaultContract.claimWinnings();
+    await tx.wait();
+    log('Winnings claimed!', 'success');
+    toast('ETH claimed!', 'success');
+    await refreshState();
+  } catch(e){
+    const msg = e.reason || e.message;
+    log('claimWinnings error: '+msg, 'error');
+    toast('Error: '+msg, 'error');
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+setPrediction(true); // default: predict survive
+
+// Pre-fill modal if saved
+if(vaultAddr) document.getElementById('modal-vault-addr').value = vaultAddr;
+if(gameAddr)  document.getElementById('modal-game-addr').value  = gameAddr;
+
+// Auto-connect if already authorised
+if(window.ethereum){
+  window.ethereum.request({method:'eth_accounts'}).then(accounts=>{
+    if(accounts.length > 0) connectWallet();
+  });
+}
+</script>
+</body>
+</html>
