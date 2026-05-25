@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>GlassBridgeBet</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<!-- Page layout 
+  this part defines the ui look, the dark theme, fonts, panel layout buttons, log box modal and role tag-->
 <style>
 :root{
   --red:#e63946;--green:#2dc653;--yellow:#ffd166;--blue:#118ab2;
@@ -141,7 +143,8 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
 </style>
 </head>
 <body>
-
+<!--header and wallet connection
+  this section shows app title current role and connnect wallet button -->
 <header>
   <div class="logo">Glass<span>Bridge</span>Bet</div>
   <div style="display:flex;align-items:center;gap:12px">
@@ -153,7 +156,8 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
 <div class="main">
   <!-- LEFT PANEL -->
   <div class="left">
-
+<!--game status display
+    this part of the code shows the current blockchain game state, game id , step count player info and vault balance -->
     <!-- Game Status -->
     <div class="game-status">
       <div class="status-row">
@@ -178,7 +182,8 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
       </div>
     </div>
 
-    <!-- Bridge visual -->
+    <!-- Bridge visual 
+    this section shows the bridge pannels so the user can see step by step progress -->
     <div class="bridge-section">
       <div class="section-title">The Bridge</div>
       <div class="bridge" id="bridge-panels">
@@ -186,7 +191,7 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
       </div>
     </div>
 
-    <!-- Player choices -->
+    <!-- Player choices - this part of code is where registered players chose left or right during an active game -->
     <div class="choice-section">
       <div class="section-title">Make Your Choice</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Only the registered player can cross. Choose a panel — one is safe glass, one will shatter.</div>
@@ -202,7 +207,8 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
       </div>
     </div>
 
-    <!-- Admin section -->
+    <!-- Admin section 
+    this section is where the front man computes the hash, start game - reveal pattern or withdraw fee -->
     <div class="admin-section">
       <div class="section-title">Front Man Controls</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Only the deployer wallet can use these.</div>
@@ -239,7 +245,7 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
       </div>
     </div>
 
-    <!-- Player register -->
+    <!-- Player register - simple control for player to register before making any moves -->
     <div class="admin-section">
       <div class="section-title">Player</div>
       <button class="btn btn-blue" id="btn-register" disabled onclick="registerPlayer()">Register as Player</button>
@@ -253,7 +259,8 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
   <!-- RIGHT PANEL -->
   <div class="right">
 
-    <!-- Betting -->
+    <!-- Betting controls 
+    this section is where spectators can place bets on the player surviving or dying at each pannel -->
     <div class="right-section">
       <div class="right-title">Place a Bet</div>
       <div class="bet-row">
@@ -274,14 +281,16 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
       <button class="btn btn-green" id="btn-place-bet" disabled onclick="placeBet()">Place Bet</button>
     </div>
 
-    <!-- Winnings -->
+    <!-- Winnings display
+    shows the connected wallets current winnings and then lets them claim if they are eligible too -->
     <div class="right-section">
       <div class="right-title">My Winnings</div>
       <div class="winnings-amount" id="winnings-display">0.0000 ETH</div>
       <button class="btn btn-green" id="btn-claim" disabled onclick="claimWinnings()">Claim Winnings</button>
     </div>
 
-    <!-- Tx Log -->
+    <!--activity log
+    this section logs key actiones like wallet connections , game steps, bets  and errors -->
     <div class="log">
       <div class="log-title">Activity Log</div>
       <div class="log-entries" id="log-entries">
@@ -294,7 +303,8 @@ input:focus,select:focus{outline:none;border-color:var(--yellow)}
 <!-- Toast -->
 <div id="toast"></div>
 
-<!-- Modal: contract addresses -->
+<!-- Modal: contract setup modal
+  the modal ask user to enter the deployed contract addreesses so the front man can connect to the blockchain -->
 <div class="modal-overlay" id="setup-modal">
   <div class="modal">
     <h3>Contract Setup</h3>
@@ -363,7 +373,8 @@ function fmt(wei){
 
 function shortAddr(addr){ return addr ? addr.slice(0,6)+'...'+addr.slice(-4) : '—'; }
 
-// ─── WALLET ──────────────────────────────────────────────────────────────────
+// wallet connection logs - this func connects to metamask, gets singer/account , checks the network 
+  //and loads smart contract if adresses are already saved 
 async function connectWallet(){
   if(!window.ethereum){ toast('MetaMask not found!','error'); return; }
   try {
@@ -395,7 +406,9 @@ async function connectWallet(){
     log('Wallet error: '+e.message, 'error');
   }
 }
-
+// saving contract address 
+  // stores the contract address in local stroage 
+  //then initializes contract 
 function saveAddresses(){
   const v = document.getElementById('modal-vault-addr').value.trim();
   const g = document.getElementById('modal-game-addr').value.trim();
@@ -406,7 +419,9 @@ function saveAddresses(){
   document.getElementById('setup-modal').classList.remove('show');
   initContracts();
 }
-
+// contract initialization
+  // this creates the two object using the abi and singer 
+  // then refreshes state
 function initContracts(){
   vaultContract = new ethers.Contract(vaultAddr, VAULT_ABI, signer);
   gameContract  = new ethers.Contract(gameAddr,  GAME_ABI,  signer);
@@ -416,8 +431,9 @@ function initContracts(){
   setBtn('btn-place-bet',  true);
   refreshState();
 }
-
-// ─── GAME STATE ──────────────────────────────────────────────────────────────
+// Refresdhing GAME STATE 
+  // important function it reads the the current blockchain state 
+  //then updates the ui button and role display 
 async function refreshState(){
   if(!gameContract) return;
   try {
@@ -472,7 +488,8 @@ async function refreshState(){
     log('Refresh error: '+e.message, 'error');
   }
 }
-
+// rendering the bridge panels
+  //- this builds the visual bridge and marks step as pending , current, survived or eliminated 
 function renderBridge(total, currentStep, alive, stateIdx){
   if(!total || total === 0){
     document.getElementById('bridge-panels').innerHTML = '<div style="color:var(--muted);font-size:12px">Start a game to see the bridge</div>';
@@ -493,7 +510,7 @@ function renderBridge(total, currentStep, alive, stateIdx){
   document.getElementById('bridge-panels').innerHTML = html;
 }
 
-// ─── HASH COMPUTATION ────────────────────────────────────────────────────────
+// ─── HASH COMPUTATION ─ creates the commit hash from the pattern and salt before the game starts 
 function computeHash(){
   const pattern = document.getElementById('input-pattern').value.trim().toUpperCase();
   const saltStr = document.getElementById('input-salt').value.trim();
@@ -521,7 +538,9 @@ function computeHash(){
   setBtn('btn-reveal', true);
 }
 
-// ─── FRONT MAN ACTIONS ───────────────────────────────────────────────────────
+// ─── FRONT MAN ACTIONS ──start , reveal and fee action 
+  // these are the front man actions the drive the lifecycle of the game 
+  
 async function startGame(){
   if(!computedHash){ toast('Compute hash first!', 'error'); return; }
   const steps = parseInt(document.getElementById('input-steps').value);
@@ -576,7 +595,8 @@ async function withdrawFee(){
   }
 }
 
-// ─── PLAYER ACTIONS ──────────────────────────────────────────────────────────
+// ─── PLAYER ACTIONS ─
+  //covers player registration and making a move accross the bridge 
 async function registerPlayer(){
   try {
     toast('Confirm in MetaMask...', 'info');
@@ -612,12 +632,12 @@ async function makeChoice(goLeft){
           stepNum  = parsed.args.step;
         }
         if(parsed.name === 'PlayerWon'){
-          toast('🏆 You won! Claim your prize!', 'success');
-          log('🏆 PLAYER WON! All steps completed.', 'success');
+          toast('You won! Claim your prize!', 'success');
+          log(' PLAYER WON! All steps completed.', 'success');
         }
         if(parsed.name === 'PlayerEliminated'){
-          toast('💀 Eliminated at step '+parsed.args.atStep, 'error');
-          log('💀 Player eliminated at step '+parsed.args.atStep, 'error');
+          toast('Eliminated at step '+parsed.args.atStep, 'error');
+          log('Player eliminated at step '+parsed.args.atStep, 'error');
         }
       } catch {}
     }
@@ -634,7 +654,9 @@ async function makeChoice(goLeft){
   }
 }
 
-// ─── SPECTATOR ACTIONS ───────────────────────────────────────────────────────
+// ─── SPECTATOR ACTIONS 
+  //these let spectators choose a prediction , place bet 
+  // and claim winning after the game has finished 
 function setPrediction(survive){
   currentPrediction = survive;
   document.getElementById('pred-survive').className = 'predict-btn' + (survive ? ' active-survive' : '');
@@ -677,7 +699,8 @@ async function claimWinnings(){
   }
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
+// ─── INIT 
+  // start up logic - this auto fills addresses and reconnects the user if already authorised to metamask 
 setPrediction(true); // default: predict survive
 
 // Pre-fill modal if saved
