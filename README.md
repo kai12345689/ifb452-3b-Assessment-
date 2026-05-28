@@ -1,4 +1,6 @@
 # GlassBridgeBet 
+> A blockchain based betting game inspired by Squid Game's glass bridge challenge.
+> Built with Solidity, Hardhat and MetaMask for IFB452 Blockchain Technology at QUT.
 ## Contributors
 
 
@@ -9,9 +11,6 @@
 
 
 
-> A blockchain based betting game inspired by Squid Game's glass bridge challenge.
-> Built with Solidity, Hardhat and MetaMask for IFB452 Blockchain Technology at QUT.
-> 
 **Live App:** [GitHub Pages link here]
 
 ---
