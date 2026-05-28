@@ -1,11 +1,6 @@
 # GlassBridgeBet 
 ## Contributors
 
-## Contributors
-
-
-> A blockchain based betting game inspired by Squid Game's glass bridge challenge.
-> Built with Solidity, Hardhat and MetaMask for IFB452 Blockchain Technology at QUT.
 
 | Name | Contribution | Areas |
 |------|-------------|-------|
@@ -13,6 +8,10 @@
 | Prabhanjan muthukannan n12459119| 80% Backend, 20% Frontend | Solidity smart contracts, Hardhat config, test suite, QUT Testnet deployment, frontend support |
 
 
+
+> A blockchain based betting game inspired by Squid Game's glass bridge challenge.
+> Built with Solidity, Hardhat and MetaMask for IFB452 Blockchain Technology at QUT.
+> 
 **Live App:** [GitHub Pages link here]
 
 ---
